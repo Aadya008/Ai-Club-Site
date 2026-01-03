@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FitCheck AI – Quiz & Virtual Try-On</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #fdfbfb, #ebedee);
+  color: #333;
+}
+
+header {
+  text-align: center;
+  padding: 20px;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.container {
+  max-width: 420px;
+  margin: auto;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 20px;
+  padding: 15px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: none;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.option {
+  background: #f1f1f1;
+  color: #333;
+  margin-top: 10px;
+}
+
+canvas {
+  width: 100%;
+  border-radius: 15px;
+}
+
+.clothes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.clothes img {
+  width: 100%;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.clothes img:hover, .clothes img.selected {
+  border-color: #111;
+}
+</style>
+</head>
+
+<body>
+
+<header>👗 FitCheck AI</header>
+
+<div class="container">
+
+  <!-- QUIZ SECTION -->
+  <section id="quiz">
+    <div class="card">
+      <h3 id="quizQuestion"></h3>
+      <div id="quizOptions"></div>
+    </div>
+  </section>
+
+  <!-- STYLE RATINGS (optional) -->
+  <section id="styleRating" class="hidden">
+    <div class="card">
+      <h3>Do you like this outfit?</h3>
+      <img id="outfitImg" src="" style="width:100%;border-radius:15px;">
+      <div style="display:flex;gap:15px;margin-top:10px;">
+        <button style="flex:1;background:#ff5c5c;color:white;" onclick="rate(false)">❌ Skip</button>
+        <button style="flex:1;background:#4cd964;color:white;" onclick="rate(true)">❤️ Like</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIRTUAL TRY-ON -->
+  <section id="tryOn" class="hidden">
+    <div class="card">
+      <h3>Upload Your Photo</h3>
+      <input type="file" accept="image/*" onchange="loadUserImage(event)">
+    </div>
+
+    <div class="card">
+      <canvas id="canvas" width="350" height="500"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Select Clothing</h3>
+      <div class="clothes">
+        <img src="https://i.imgur.com/6X4JZ8p.png" onclick="selectClothing(this)">
+        <img src="https://i.imgur.com/Z8F6K7v.png" onclick="selectClothing(this)">
+        <img src="https://i.imgur.com/F2Y9pYg.png" onclick="selectClothing(this)">
+      </div>
+    </div>
+
+    <button onclick="generateTryOn()">Generate Try-On</button>
+  </section>
+
+</div>
+
+<script>
+/* ---------------- USER PROFILE ---------------- */
+const userProfile = {};
+const quizSteps = [
+  { q: "What is your gender?", a:["Female","Male","Non-binary"], key:"gender" },
+  { q: "Your age group?", a:["Teen","20–30","30–45","45+"], key:"age" },
+  { q: "Your style vibe?", a:["Minimal","Trendy","Elegant","Sporty"], key:"style" },
+  { q: "Favorite color palette?", a:["Neutral","Bright","Dark","Pastel"], key:"color" }
+];
+
+let step = 0;
+
+function loadQuiz() {
+  if(step >= quizSteps.length) { finishQuiz(); return; }
+
+  const q = quizSteps[step];
+  document.getElementById("quizQuestion").innerText = q.q;
+  const opts = document.getElementById("quizOptions");
+  opts.innerHTML = "";
+  q.a.forEach(ans=>{
+    const btn = document.createElement("button");
+    btn.className="option";
+    btn.innerText=ans;
+    btn.onclick=()=>{ userProfile[q.key]=ans; step++; loadQuiz(); }
+    opts.appendChild(btn);
+  });
+}
+
+function finishQuiz() {
+  document.getElementById("quiz").classList.add("hidden");
+  document.getElementById("styleRating").classList.remove("hidden");
+  loadOutfit();
+}
+
+loadQuiz();
+
+/* ---------------- STYLE RATING ---------------- */
+const outfits = [
+  "https://images.unsplash.com/photo-1520975916090-3105956dac38",
+  "https://images.unsplash.com/photo-1483985988355-763728e1935b",
+  "https://images.unsplash.com/photo-1514996937319-344454492b37"
+];
+let outfitIndex = 0;
+let likes = 0;
+
+function loadOutfit() {
+  document.getElementById("outfitImg").src = outfits[outfitIndex];
+}
+
+function rate(liked) {
+  if(liked) likes++;
+  outfitIndex++;
+  if(outfitIndex>=outfits.length) {
+    document.getElementById("styleRating").classList.add("hidden");
+    document.getElementById("tryOn").classList.remove("hidden");
+  } else {
+    loadOutfit();
+  }
+}
+
+/* ---------------- VIRTUAL TRY-ON ---------------- */
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let userImg = new Image();
+let clothingImg = new Image();
+
+function loadUserImage(event) {
+  const reader = new FileReader();
+  reader.onload=function(){
+    userImg.onload=draw;
+    userImg.src=reader.result;
+  }
+  reader.readAsDataURL(event.target.files[0]);
+}
+
+function selectClothing(imgElem) {
+  document.querySelectorAll(".clothes img").forEach(i=>i.classList.remove("selected"));
+  imgElem.classList.add("selected");
+  clothingImg.onload=draw;
+  clothingImg.src=imgElem.src;
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(userImg.src) ctx.drawImage(userImg,0,0,canvas.width,canvas.height);
+  if(clothingImg.src) ctx.drawImage(clothingImg,50,150,250,250);
+}
+
+function generateTryOn() {
+  alert("🤖 Virtual Try-On generated (simulation)");
+}
+</script>
+
+</body>
+</html>
